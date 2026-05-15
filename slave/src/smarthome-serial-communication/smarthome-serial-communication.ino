@@ -47,6 +47,10 @@
 #define greenPin_RGB 23
 #define bluePin_RGB 22
 
+int rgb_r = 0;
+int rgb_g = 0;
+int rgb_b = 0;
+
 // LCD Display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -74,6 +78,7 @@ byte colPins[COLS] = {41, 43, 45, 47};
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 String command = "";
+String rgb_color = "off";
 
 void setup() {
   // Initialize Serial
@@ -142,18 +147,30 @@ void executeCommand(String cmd) {
       digitalWrite(LED_BUILTIN, LOW);
       Serial.println("Result: LED is OFF");
     }
-  } else if (cmd.startsWith("rgb")) {
-    if (cmd.indexOf("red") > 0) {
-      color(255, 0, 0);
-      Serial.println("Result: RGB set to RED");
-    } else if (cmd.indexOf("green") > 0) {
-      color(0, 255, 0);
-      Serial.println("Result: RGB set to GREEN");
-    } else if (cmd.indexOf("blue") > 0) {
-      color(0, 0, 255);
-      Serial.println("Result: RGB set to BLUE");
+  } else if (cmd.startsWith("rgb:")) {
+    int r, g, b;
+    if (sscanf(cmd.c_str(), "rgb: %d, %d, %d", &r, &g, &b) == 3) {
+
+      r = constrain(r, 0, 255);
+      rgb_r = r;
+      g = constrain(g, 0, 255);
+      rgb_g = g;
+      b = constrain(b, 0, 255);
+      rgb_b = b;
+
+      color(r, g, b);
+
+      Serial.print("Result: RGB set to ");
+      Serial.print(r);
+      Serial.print(", ");
+      Serial.print(g);
+      Serial.print(", ");
+      Serial.println(b);
+
+    } else {
+      Serial.println("Error: Use format -> rgb: 255, 20, 100");
     }
-  } else if (cmd.startsWith("buzzer")) {
+} else if (cmd.startsWith("buzzer")) {
     if (cmd.indexOf("on") > 0) {
       digitalWrite(buzzer, HIGH);
       Serial.println("Result: Buzzer is ON");
@@ -184,6 +201,56 @@ void executeCommand(String cmd) {
         lcd.print(msg);
         Serial.println("Result: LCD message sent");
       }
+  } else if (cmd.startsWith("red")) {
+    if (cmd.indexOf("on") > 0) {
+      digitalWrite(redLED, HIGH);
+      Serial.println("Result: LED Rojo ON");
+    } else if (cmd.indexOf("off") > 0) {
+      digitalWrite(redLED, LOW);
+      Serial.println("Result: LED Rojo OFF");
+    }
+  } else if (cmd.startsWith("green")) {
+    if (cmd.indexOf("on") > 0) {
+      digitalWrite(greenLED, HIGH);
+      Serial.println("Result: LED Verde ON");
+    } else if (cmd.indexOf("off") > 0) {
+      digitalWrite(greenLED, LOW);
+      Serial.println("Result: LED Verde OFF");
+    }
+  } else if (cmd.startsWith("yellow")) {
+    if (cmd.indexOf("on") > 0) {
+      digitalWrite(yellowLED, HIGH);
+      Serial.println("Result: LED Amarillo ON");
+    } else if (cmd.indexOf("off") > 0) {
+      digitalWrite(yellowLED, LOW);
+      Serial.println("Result: LED Amarillo OFF");
+    }
+  } else if (cmd.startsWith("white")) {
+    if (cmd.indexOf("on") > 0) {
+      digitalWrite(whiteLED, HIGH);
+      Serial.println("Result: Luz Exterior ON");
+    } else if (cmd.indexOf("off") > 0) {
+      digitalWrite(whiteLED, LOW);
+      Serial.println("Result: Luz Exterior OFF");
+    }
+  } else if (cmd.startsWith("lights")) {
+    if (cmd.indexOf("on") > 0) {
+      digitalWrite(redLED, HIGH);
+      digitalWrite(greenLED, HIGH);
+      digitalWrite(yellowLED, HIGH);
+      digitalWrite(whiteLED, HIGH);
+      color(255, 255, 255);
+      rgb_color = "white";
+      Serial.println("Result: Todas las luces ON");
+    } else if (cmd.indexOf("off") > 0) {
+      digitalWrite(redLED, LOW);
+      digitalWrite(greenLED, LOW);
+      digitalWrite(yellowLED, LOW);
+      digitalWrite(whiteLED, LOW);
+      color(0, 0, 0);
+      rgb_color = "off";
+      Serial.println("Result: Todas las luces OFF");
+    }
   } else {
     Serial.println("Unknown command");
   }
@@ -228,6 +295,20 @@ void readAllSensors() {
   Serial.print("Result: Temperature: ");
   Serial.print(DHT.temperature, 1);
   Serial.println("C");
+
+  // Estado de las luces
+  Serial.print("Result: red LED: ");
+  Serial.println(digitalRead(redLED) ? "ON" : "OFF");
+  Serial.print("Result: green LED: ");
+  Serial.println(digitalRead(greenLED) ? "ON" : "OFF");
+  Serial.print("Result: yellow LED: ");
+  Serial.println(digitalRead(yellowLED) ? "ON" : "OFF");
+  Serial.print("Result: white LED: ");
+  Serial.println(digitalRead(whiteLED) ? "ON" : "OFF");
+  Serial.print("Result: RGB status: ");
+  Serial.println(rgb_color);
+  Serial.print("Result: RGB color: ");
+  Serial.println(String(rgb_r) + ", " + String(rgb_g) + ", " + String(rgb_b));
 }
 
 void handleKeypad() {
