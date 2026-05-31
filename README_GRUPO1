@@ -1,0 +1,191 @@
+
+Este archivo detalla de forma estricta el estado de desarrollo de la maqueta 
+atendiendo a los criterios de evaluación del proyecto.
+
+--------------------------------------------------------------------------------
+ESTADO DE CUMPLIMIENTO DE LOS CONCEPTOS DE EVALUACIÓN
+--------------------------------------------------------------------------------
+
+[FUNCIONA] 1: El SW SLAVE (Arduino) recibe comandos por USB/Serie para manejar la iluminación
+    * Estado: Completamente operativo. El analizador de cadenas (parser) del 
+      Arduino lee el búfer serie a 9600 baudios, reconoce las palabras clave 
+      y conmuta los pines correspondientes (LEDs individuales, Global y RGB).
+
+[FUNCIONA] 2: El SW SLAVE (Arduino) envía la información por USB/Serie con el estado de la iluminación
+    * Estado: Completamente operativo. Al invocar el comando 'sensors', el 
+      firmware lee en ráfaga los registros digitales de los actuadores y 
+      los vuelca formateados por la línea serie USB en texto plano hacia el Master.
+
+[BLOQUEADO] 3: El SW MASTER (Raspberry) recibe la información por USB/Serie sobre el estado de la iluminación y la envía a IOTCore (AWS Cloud) por el topic correspondiente
+    * Estado: Incompleto. Aunque el script local parsea el flujo serie a JSON 
+      y el túnel TLS MQTT está configurado, las limitaciones de conectividad de 
+      AWS Academy en la cuenta de Claudiu cortan el flujo saliente.
+
+[BLOQUEADO] 4: El SW MASTER (Raspberry) recibe un comando de iluminación por el topic de IOTCore (AWS Cloud) y lo envía por el USB/Serie hacia el Arduino.
+    * Estado: Incompleto. La pasarela no logra mantener la suscripción activa al 
+      topic de comandos debido a las restricciones de red perimetrales.
+
+[BLOQUEADO] Configuración de IOTCore: Recibir información de iluminación por el topic de telemetría y enrutarlos a AWS DynamoDB y el envío de comandos por el topic de commands. Uso de mecanismo de prueba para verificar enlace.
+    * Estado: Incompleto. Al asociar el rol de la regla ('LabRole') para inyectar 
+      datos en DynamoDB, la consola de Amazon arroja una excepción de seguridad 
+      'InvalidRequestException' debido a que la directiva 'sts:AssumeRole' 
+      se encuentra capada en este laboratorio educativo.
+
+[BLOQUEADO] 5: El SW CLOUD (EC2) lee de DynamoDB el estado actual de la iluminación y la representa en la UI WEB.
+    * Estado: Incompleto. El servidor web Flask (Bulma CSS) cuenta con la lógica 
+      Jinja2 programada, pero al consultar la base de datos mediante 'boto3', 
+      AWS deniega el acceso con un error 'UnrecognizedClientException' porque los 
+      tokens de sesión temporales expiran en caliente.
+
+[BLOQUEADO] 6: El SW CLOUD (EC2) recibe del formulario una acción a realizar en la casa y lo envía al topic de commands de IOTCore.
+    * Estado: Incompleto. Las peticiones 'POST /send' del Dashboard web fallan 
+      con código de error 500 debido a la falta de persistencia en las credenciales 
+      API del entorno de pruebas.
+
+
+--------------------------------------------------------------------------------
+1. CARGA DEL CÓDIGO SLAVE EN EL ARDUINO IDE
+--------------------------------------------------------------------------------
+
+A) INSTALACIÓN DE DEPENDENCIAS (Librerías obligatorias):
+   Abre el Arduino IDE, entra en Herramientas -> Administrar bibliotecas e 
+   instala las siguientes librerías necesarias para compilar el firmware:
+   
+   1. LiquidCrystal I2C (por Frank de Brabander)
+   2. Servo (Librería nativa del sistema)
+   3. RFID (por Miguel Balboa)
+   4. DHT Sensor Library (por Adafruit)
+
+B) PROCEDIMIENTO DE CARGA:
+   1. Abre el sketch 'Grupo1_IOT/arduino/maqueta_lights.ino'.
+   2. Conecta la placa Arduino mediante USB.
+   3. Selecciona la placa en Herramientas -> Placa -> 'Arduino Uno'.
+   4. Selecciona el puerto serie activo en Herramientas -> Puerto.
+   5. Haz clic en el botón superior de 'Subir' (Flecha a la derecha).
+
+--------------------------------------------------------------------------------
+3. LISTA DE COMANDOS DISPONIBLES EN EL ARDUINO (CONCEPTO 1 Y 2)
+--------------------------------------------------------------------------------
+
+A) CONTROL DE DIODOS LED (CONCEPTO 1):
+   * 'red on'      --> Enciende el LED Rojo de la casa (Pin 13).
+   * 'red off'     --> Apaga el LED Rojo (Pin 13).
+   * 'green on'    --> Enciende el LED Verde (Pin 12).
+   * 'green off'   --> Apaga el LED Verde (Pin 12).
+   * 'yellow on'   --> Enciende el LED Amarillo (Pin 10).
+   * 'yellow off'  --> Apaga el LED Amarillo (Pin 10).
+   * 'white on'    --> Enciende el LED Blanco exterior (Pin 9).
+   * 'white off'   --> Apaga el LED Blanco exterior (Pin 9).
+   * 'led on'      --> Enciende el LED interno integrado en la placa (Pin 13).
+   * 'led off'     --> Apaga el LED interno de la placa.
+
+B) CONTROL GLOBAL DE LUCES (CONCEPTO 1):
+   * 'lights on'   --> Enciende todos los canales de iluminación simultáneamente.
+   * 'lights off'  --> Corta la alimentación de todas las luces de la maqueta.
+
+C) SELECCIÓN CROMÁTICA RGB (CONCEPTO 1):
+   * 'rgb: R, G, B' --> Modula el color mediante enteros PWM (Rango de 0 a 255).
+                       Ejemplo de prueba: rgb: 255, 20, 100
+   * 'rgb off'     --> Desactiva la tira de iluminación RGB.
+
+D) ACTUADORES DE ENTRADA (CONCEPTO 1):
+   * 'servo open'  --> Rota el servomotor a 180 grados (Apertura de puerta).
+   * 'servo half'  --> Rota el servomotor a 90 grados (Posición intermedia).
+   * 'servo close' --> Rota el servomotor a 0 grados (Cierre de seguridad).
+   * 'buzzer on'   --> Activa el zumbador acústico de alarma (Pin 5).
+   * 'buzzer off'  --> Silencia el zumbador acústico (Pin 5).
+
+E) SALIDA DE TEXTO PANTALLA LCD (CONCEPTO 1):
+   * 'lcd "Texto"' --> Imprime un mensaje en el display I2C (Entre comillas).
+                       Ejemplo de prueba: lcd "SmartHome"
+
+F) VOLCADO DE ESTADO UNIFICADO (CONCEPTO 2):
+   * 'sensors'     --> Devuelve por el bus USB las lecturas actuales formateadas:
+                       
+                       Result: Safe (No Fire)
+                       Result: No Noise!
+                       Result: No Intruder!
+                       Result: Distance: 14 cm
+                       Result: Humidity: 52.0%
+                       Result: Temperature: 23.0C
+                       Result: red LED: OFF
+                       Result: green LED: ON
+                       Result: yellow LED: OFF
+                       Result: white LED: OFF
+                       Result: RGB status: off
+                       Result: RGB color: 0, 0, 0
+
+--------------------------------------------------------------------------------
+4. ANÁLISIS DETALLADO DE DIFICULTADES Y BLOQUEOS EN ENTORNO CLOUD (AWS ACADEMY)
+--------------------------------------------------------------------------------
+
+Durante el desarrollo de los Conceptos 3, 4, 5, 6 y la configuración de IoTCore 
+en la cuenta de AWS del alumno Claudiu, el equipo se enfrentó a limitaciones 
+críticas de infraestructura ajenas al código fuente. A continuación, se detallan 
+los bloqueos perimetrales que impidieron el despliegue final:
+
+A) DENEGACIÓN DE SUPLANTACIÓN DE ROLES (InvalidRequestException en IoTCore):
+   Al configurar el motor de reglas de AWS IoT Core para mapear el flujo entrante 
+   directamente en la tabla 'telemetry' de DynamoDB, el asistente de la consola 
+   exige asociar un Rol de IAM. 
+   * Bloqueo: AWS Academy bloquea la directiva de seguridad 'sts:AssumeRole' a 
+     nivel de cuenta. Por lo tanto, el broker de IoT Core no tiene permisos para 
+     actuar en nombre del usuario, impidiendo que los payloads se inserten de 
+     forma automatizada en las tablas NoSQL y rompiendo el flujo del Concepto 3.
+
+B) EXPIRACIÓN AGRESIVA DE CREDENCIALES (UnrecognizedClientException en Flask):
+   El Dashboard web ligero (diseñado en Bulma CSS) se comunica con los servicios 
+   nativos de AWS en la nube mediante la interfaz API de la librería 'boto3'.
+   * Bloqueo: El entorno de pruebas 'Learner Lab' genera claves de sesión 
+     temporales con un ciclo de vida muy restrictivo. Al levantar el servidor de 
+     producción en la máquina virtual, el parámetro de entorno obligatorio 
+     'aws_session_token' expiraba en caliente a los pocos minutos de actividad. 
+     Esto causaba que cualquier petición de lectura ('Scan'/'Query' para la UI) 
+     o escritura ('Publish' al topic de comandos) fuera rechazada por los 
+     servidores de Amazon con un error HTTP 500, bloqueando los Conceptos 5 y 6.
+
+C) ASINCRONÍA EN LA PERSISTENCIA DE LA CACHÉ:
+   Debido a los dos problemas anteriores, el backend de Python se veía obligado 
+   a capturar las excepciones de fallo de autenticación de AWS y recurrir a un 
+   volcado local secundario ('datos.json'). Al no existir una comunicación síncrona 
+   estable en tiempo real entre el broker Cloud y la pasarela local de la 
+   Raspberry Pi por culpa del capado perimetral de red, se producían pérdidas de 
+   paquetes en la suscripción del topic 'command', dejando inoperativo el Concepto 4.
+
+--------------------------------------------------------------------------------
+CONCLUSIÓN Y VALORACIÓN PERSONAL DEL EQUIPO
+--------------------------------------------------------------------------------
+
+  A modo de cierre, el equipo desea exponer una valoración sincera sobre el 
+  desarrollo de este proyecto. Tras analizar el despliegue final, somos conscientes 
+  de que no se ha alcanzado el objetivo principal de la práctica en su vertiente 
+  Cloud (conectar la totalidad de los pasos con la infraestructura de AWS). Lamentamos 
+  sinceramente no haber podido consolidar el flujo completo, pero consideramos que 
+  esta experiencia ha sido un punto de inflexión clave en nuestro aprendizaje.
+  
+  Durante el proceso, nos hemos enfrentado a dos grandes dificultades:
+  
+  1. CURVA DE APRENDIZAJE Y COMPLEJIDAD TÉCNICA:
+     El nivel requerido para integrar de forma nativa tantas herramientas simultáneas 
+     (programación avanzada en Python, arquitectura IoT en la nube, gestión de 
+     permisos IAM en AWS y administración de bases de datos NoSQL como DynamoDB) ha 
+     resultado ser muy exigente para los conocimientos técnicos que manejamos 
+     actualmente. El volumen de tecnologías solapadas supuso una barrera de 
+     entrada compleja para el equipo.
+  
+  2. AMBIGÜEDAD EN LA DOCUMENTACIÓN GUÍA (Aula0 y READMEs):
+     Otra dificultad añadida ha sido el seguimiento de las guías de cada apartado y 
+     de Aula0. Hemos detectado que varios pasos no estaban explicados con suficiente 
+     claridad o daban por sentados ciertos procedimientos esenciales. Al avanzar en 
+     la práctica guiada, nos encontrábamos con saltos en la lógica de configuración 
+     que nos obligaban a pausar el desarrollo para resolver problemas de entorno no 
+     previstos, lo que ralentizó nuestra capacidad de reacción en la nube.
+  
+  A pesar de no haber completado los hitos en AWS, nos quedamos con una lectura 
+  muy positiva. Esta práctica nos ha servido para entender cómo se estructuran 
+  los entornos IoT en el mundo real, cómo se gestiona la comunicación serie en 
+  hardware (Conceptos 1 y 2 que funcionan de forma robusta) y, sobre todo, nos ha 
+  enseñado a diagnosticar errores complejos de redes y credenciales. Todo el código 
+  está desarrollado y preparado; asumimos con madurez el resultado actual y valoramos 
+  enormemente los conocimientos prácticos adquiridos durante estas semanas.
+--------------------------------------------------------------------------------
