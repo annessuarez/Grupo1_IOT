@@ -1,17 +1,16 @@
 /*
-   ______            __                  _            __                __________
-  / ____/_  ______ _/ /__________ _   __(_)__  ____  / /_____  _____   / ____/  _/
- / /   / / / / __ `/ __/ ___/ __ \ | / / / _ \/ __ \/ __/ __ \/ ___/  / /    / /  
-/ /___/ /_/ / /_/ / /_/ /  / /_/ / |/ / /  __/ / / / /_/ /_/ (__  )  / /____/ /   
-\____/\__,_/\__,_/\__/_/   \____/|___/_/\___/\_/ /_/\__/\____/____/   \____/___/   
-                                                                                
-    __             ___              __             ______   __   
-   / /_  __  __   /   |  ____  ____/ /__  _____   / ____/  / /   
-  / __ \/ / / /  / /| | / __ \/ __  / _ \/ ___/  / /_     / /    
- / /_/ / /_/ /  / ___ |/ / / / /_/ /  __/ /     / __/  _ / /____ 
-/_.___/\__, /  /_/  |_/_/ /_/\__,_/\___/\_/     /_/    (_)_____(_)
-      /____/   
-                                           
+    ______                         __                   _            __                __________
+   / ____/_  ______ _/ /__________ _   __(_)__  ____  / /_____  _____   / ____/  _/
+  / /   / / / / __ `/ __/ ___/ __ \ | / / / _ \/ __ \/ __/ __ \/ ___/  / /     / /  
+ / /___/ /_/ / /_/ / /_/ /  / /_/ / |/ / /  __/ / / / /_/ /_/ (__  )  / /____/ /   
+ \____/\__,_/\__,_/\__/_/   \____/|___/_/\___/\_/ /_/\__/\____/____/   \____/___/   
+                                                                                   
+     __              ___              __              ______   __   
+    / /_  __  __    /   |  ____  ____/ /__  _____    / ____/  / /   
+   / __ \/ / / /   / /| | / __ \/ __  / _ \/ ___/   / /_     / /    
+  / /_/ / /_/ /   / ___ |/ / / / /_/ /  __/ /      / __/  _ / /____ 
+ /_.___/\__, /   /_/  |_/_/ /_/\__,_/\___/\_/      /_/     (_)_____(_)
+       /____/                                                       
  Smarthome Serial Communication Project
  
  This project integrates all the smarthome lessons into a single Arduino sketch.
@@ -58,7 +57,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo head;
 
 // RFID
-unsigned char my_rfid[] = {227, 10, 252, 39, 50}; // replace with your RFID value
+unsigned char my_rfid[] = {227, 10, 252, 39, 50}; 
 RFID rfid(RFID_SDA, RFID_RST);
 
 // DHT Sensor
@@ -159,6 +158,7 @@ void executeCommand(String cmd) {
       rgb_b = b;
 
       color(r, g, b);
+      rgb_color = "on"; 
 
       Serial.print("Result: RGB set to ");
       Serial.print(r);
@@ -170,7 +170,11 @@ void executeCommand(String cmd) {
     } else {
       Serial.println("Error: Use format -> rgb: 255, 20, 100");
     }
-} else if (cmd.startsWith("buzzer")) {
+  } else if (cmd.startsWith("rgb off")) { 
+    color(0, 0, 0);
+    rgb_color = "off";
+    Serial.println("Result: RGB is OFF");
+  } else if (cmd.startsWith("buzzer")) {
     if (cmd.indexOf("on") > 0) {
       digitalWrite(buzzer, HIGH);
       Serial.println("Result: Buzzer is ON");
@@ -347,6 +351,11 @@ void handleRFID() {
 
 // Helper functions
 void color(unsigned char red, unsigned char green, unsigned char blue) {
+  // MODIFICADO: Despierta los temporizadores PWM restableciendo el pin como salida
+  pinMode(redPin_RGB, OUTPUT);
+  pinMode(greenPin_RGB, OUTPUT);
+  pinMode(bluePin_RGB, OUTPUT);
+
   analogWrite(redPin_RGB, red);
   analogWrite(greenPin_RGB, green);
   analogWrite(bluePin_RGB, blue);
@@ -402,4 +411,4 @@ int watch() {
   echo_distance = pulseIn(Echo_PIN, HIGH);
   echo_distance = echo_distance * 0.01657;
   return round(echo_distance);
-}
+}-
