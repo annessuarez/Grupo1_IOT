@@ -1,145 +1,252 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="es">
 <head>
-    <title>Dashboard Telemetría</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Iluminación - Smarthome</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.0/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
         body {
-            font-family: Arial, sans-serif;
             background-color: #f4f6f9;
-            margin: 0;
-            padding: 20px;
         }
-
-        h2 {
-            margin-bottom: 10px;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: auto;
-        }
-
-        .card {
-            background: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        }
-
-        .top-bar {
+        .light-card {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
-            margin-bottom: 20px;
+            text-align: center;
+            padding: 1.5rem;
         }
-
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 6px;
+        .status-indicator {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-bottom: 0.75rem;
+            border: 2px solid #555;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            transition: background-color 0.3s ease;
+        }
+        /* Clases de estado dinámicas basadas en las respuestas del sistema */
+        .indicator-red.is-on { background-color: #ff3860; }
+        .indicator-red.is-off { background-color: #fff; }
+        .indicator-yellow.is-on { background-color: #ffdd57; }
+        .indicator-yellow.is-off { background-color: #fff; }
+        .indicator-green.is-on { background-color: #48c774; }
+        .indicator-green.is-off { background-color: #fff; }
+        .indicator-white.is-on { background-color: #f5f5f5; box-shadow: 0 0 8px #fff; }
+        .indicator-white.is-off { background-color: #fff; }
+        
+        /* Switch estilizado usando CSS puro compatible con Bulma */
+        .switch-container {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+            margin-top: 0.5rem;
+        }
+        .switch-container input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
             cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
         }
-
-        button:hover {
-            background-color: #0056b3;
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
         }
-
-        select {
-            padding: 8px;
-            border-radius: 5px;
-        }
-
-        textarea {
-            width: 100%;
-            border-radius: 6px;
-            padding: 10px;
-            font-family: monospace;
-        }
-
-        canvas {
-            margin-top: 10px;
-        }
-
-        .title {
-            font-size: 20px;
-            font-weight: bold;
-        }
+        input:checked + .slider { background-color: #48c774; }
+        input:checked + .slider:before { transform: translateX(24px); }
     </style>
 </head>
-
 <body>
 
-<div class="container">
+<section class="section">
+    <div class="container" style="max-width: 1100px;">
 
-    <!-- TOP BAR -->
-    <div class="top-bar">
-        <div class="title">🏠 Telemetría {% if selected_house %}{{ selected_house }}{% else %}Sin datos{% endif %}</div>
+        <div class="level box py-3 px-4 mb-5">
+            <div class="level-left">
+                <div class="level-item">
+                    <h1 class="title is-4">
+                        💡 Iluminación {% if selected_house %}{{ selected_house }}{% else %}Sin datos{% endif %}
+                    </h1>
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <form action="/refresh" method="get" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerText='Actualizando...'">
+                        <input type="hidden" name="house" value="{{ selected_house }}">
+                        <button type="submit" class="button is-link is-outlined">
+                            🔄 Actualizar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
-        <form action="/refresh" method="get" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerText='Actualizando...'">
-            <input type="hidden" name="house" value="{{ selected_house }}">
-            <button type="submit">
-                🔄 Actualizar
-            </button>
-        </form>
-    </div>
+        <div class="box mb-5">
+            {% if houses %}
+                <form method="get" id="houseForm">
+                    <div class="field is-horizontal">
+                        <div class="field-label is-normal">
+                            <label class="label">Seleccionar Casa:</label>
+                        </div>
+                        <div class="field-body">
+                            <div class="field">
+                                <div class="control">
+                                    <div class="select is-fullwidth">
+                                        <select name="house" onchange="document.getElementById('houseForm').submit()">
+                                            {% for house in houses %}
+                                            <option value="{{ house }}" {% if house == selected_house %}selected{% endif %}>
+                                                {{ house }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                endform
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            {% else %}
+                <p class="has-text-grey">No hay datos de casas disponibles</p>
+            {% endif %}
+        </div>
 
-    <!-- SELECTOR CASA -->
-    <div class="card">
-        {% if houses %}
-            <form method="get">
-                <label>Selecciona casa:</label>
-                <select name="house" onchange="this.form.submit()">
-                    {% for house in houses %}
-                    <option value="{{ house }}" {% if house == selected_house %}selected{% endif %}>
-                        {{ house }}
-                    </option>
-                    {% endfor %}
-                </select>
+        <div class="box mb-5">
+            <div class="columns is-mobile is-multiline is-centered">
+                
+                <div class="column is-6-mobile is-3-tablet is-one-fifth-desktop">
+                    <div class="light-card">
+                        <div class="status-indicator indicator-red is-on"></div>
+                        <span class="is-size-6 has-text-weight-medium">Led Rojo</span>
+                        <form method="post" action="/send" onchange="this.submit()">
+                            <input type="hidden" name="house" value="{{ selected_house }}">
+                            <label class="switch-container">
+                                <input type="checkbox" name="action" value="on" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <input type="hidden" name="message" value='{"device": "light", "type": "red", "action": "on"}'>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="column is-6-mobile is-3-tablet is-one-fifth-desktop">
+                    <div class="light-card">
+                        <div class="status-indicator indicator-yellow is-off"></div>
+                        <span class="is-size-6 has-text-weight-medium">Led Amarillo</span>
+                        <form method="post" action="/send" onchange="this.submit()">
+                            <input type="hidden" name="house" value="{{ selected_house }}">
+                            <label class="switch-container">
+                                <input type="checkbox" name="action" value="on">
+                                <span class="slider"></span>
+                            </label>
+                            <input type="hidden" name="message" value='{"device": "light", "type": "yellow", "action": "on"}'>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="column is-6-mobile is-3-tablet is-one-fifth-desktop">
+                    <div class="light-card">
+                        <div class="status-indicator indicator-green is-on"></div>
+                        <span class="is-size-6 has-text-weight-medium">Led Verde</span>
+                        <form method="post" action="/send" onchange="this.submit()">
+                            <input type="hidden" name="house" value="{{ selected_house }}">
+                            <label class="switch-container">
+                                <input type="checkbox" name="action" value="on" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <input type="hidden" name="message" value='{"device": "light", "type": "green", "action": "on"}'>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="column is-6-mobile is-3-tablet is-one-fifth-desktop">
+                    <div class="light-card">
+                        <div class="status-indicator indicator-white is-off"></div>
+                        <span class="is-size-6 has-text-weight-medium">Led Puerta</span>
+                        <form method="post" action="/send" onchange="this.submit()">
+                            <input type="hidden" name="house" value="{{ selected_house }}">
+                            <label class="switch-container">
+                                <input type="checkbox" name="action" value="on">
+                                <span class="slider"></span>
+                            </label>
+                            <input type="hidden" name="message" value='{"device": "light", "type": "white", "action": "on"}'>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="column is-12-mobile is-3-tablet is-one-fifth-desktop">
+                    <div class="light-card">
+                        <div class="status-indicator" style="background-color: rgb(100, 50, 20);"></div>
+                        <span class="is-size-6 has-text-weight-medium mb-2">RGB</span>
+                        <form method="post" action="/send">
+                            <input type="hidden" name="house" value="{{ selected_house }}">
+                            <div class="field has-addons">
+                                <div class="control">
+                                    <input class="input is-small" type="text" name="color_input" placeholder="255,255,255" style="max-width: 90px;">
+                                </div>
+                                <div class="control">
+                                    <button type="submit" class="button is-link is-small">Poner</button>
+                                </div>
+                            </div>
+                            <input type="hidden" name="message" value='{"device": "light", "type": "rgb", "action": "on"}'>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="buttons is-centered mt-4">
+                <form method="post" action="/send" class="mx-2">
+                    <input type="hidden" name="house" value="{{ selected_house }}">
+                    <input type="hidden" name="message" value='{"device": "light", "type": "all", "action": "on"}'>
+                    <button type="submit" class="button is-success is-medium px-5">Encender Todo</button>
+                </form>
+
+                <form method="post" action="/send" class="mx-2">
+                    <input type="hidden" name="house" value="{{ selected_house }}">
+                    <input type="hidden" name="message" value='{"device": "light", "type": "all", "action": "off"}'>
+                    <button type="submit" class="button is-danger is-medium px-5">Apagar Todo</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="box mb-5">
+            <h3 class="subtitle is-5">📊 Historial de Telemetría</h3>
+            <div class="chart-container" style="position: relative; height: 350px; width: 100%;">
+                <canvas id="chart"></canvas>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3 class="subtitle is-5">📨 Consola de depuración (Mandar JSON)</h3>
+            <form method="post" action="/send">
+                <input type="hidden" name="house" value="{{ selected_house }}">
+                <div class="field">
+                    <div class="control">
+                        <textarea class="textarea is-family-monospace" name="message" rows="4">{"device": "LCD", "message": "Hola mundo!!!"}</textarea>
+                    </div>
+                </div>
+                <button type="submit" class="button is-link">Enviar comando libre</button>
             </form>
-        {% else %}
-            <p>No hay datos disponibles</p>
-        {% endif %}
+        </div>
+
     </div>
-
-    <!-- GRÁFICA -->
-    <div class="card">
-        <h3>📊 Datos en tiempo real</h3>
-        <canvas id="chart"></canvas>
-    </div>
-
-    <!-- ENVÍO JSON -->
-    <div class="card">
-        <h3>📨 Enviar mensaje a la casa</h3>
-
-        <form method="post" action="/send">
-            <input type="hidden" name="house" value="{{ selected_house }}">
-
-            <textarea name="message" rows="6">
-{
-    "device": "LCD",
-    "message": "Hola mundo!!!"
-}
-            </textarea>
-
-            <br><br>
-            <button type="submit">Enviar mensaje</button>
-        </form>
-    </div>
-
-</div>
+</section>
 
 <script>
-
-const labels = {{ timestamps | tojson }};
-const temperature = {{ temperature | tojson }};
-const humidity = {{ humidity | tojson }};
-const distance = {{ distance | tojson }};
+const labels = {{ timestamps | tojson if timestamps else '[]' }};
+const temperature = {{ temperature | tojson if temperature else '[]' }};
+const humidity = {{ humidity | tojson if humidity else '[]' }};
+const distance = {{ distance | tojson if distance else '[]' }};
 
 new Chart(document.getElementById("chart"), {
     type: "line",
@@ -149,26 +256,36 @@ new Chart(document.getElementById("chart"), {
             {
                 label: "Temperatura (°C)",
                 data: temperature,
-                borderColor: "red",
+                borderColor: "#ff3860",
+                backgroundColor: "transparent",
                 tension: 0.3
             },
             {
                 label: "Humedad (%)",
                 data: humidity,
-                borderColor: "blue",
+                borderColor: "#209cee",
+                backgroundColor: "transparent",
                 tension: 0.3
             },
             {
                 label: "Distancia (cm)",
                 data: distance,
-                borderColor: "green",
+                borderColor: "#48c774",
+                backgroundColor: "transparent",
                 tension: 0.3
             }
         ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false, // Forzamos el acople estricto a los 350px del div padre
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        }
     }
 });
-
 </script>
-
 </body>
 </html>
